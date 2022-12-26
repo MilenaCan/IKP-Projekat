@@ -3,6 +3,7 @@
 
 int __cdecl main(int argc, char** argv) {
 	// variable used to store function return value
+	//
 	int iResult;
 
 
