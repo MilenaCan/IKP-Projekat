@@ -83,6 +83,8 @@ void CloseAllSocketsFromList(socketForList* lista) {
 
 		}
 		//zatvori svaki socket publisheras ili subscribera
+		//test1
 		closesocket(lista->acceptedSocket);
 		lista = lista->next;
 	}
+
