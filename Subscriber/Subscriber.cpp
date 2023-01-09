@@ -19,7 +19,7 @@ int __cdecl main(int argc, char** argv) {
 
 		printf("proslo inicijalizaciju soketa\n");//nije xD
 		if (Connect() == false) {
-			printf("nije proslo konektovanje\n");//provera jel problem negde u connectu
+			printf("Connection failed\n");//provera jel problem negde u connectu
 			return 1;
 		}
 		printf("konektovan je\n");// nije
