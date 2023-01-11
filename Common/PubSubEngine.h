@@ -180,8 +180,7 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 	SOCKET acceptedSocketSubscriber = INVALID_SOCKET;
 
 	short lastIndexSub = 0;
-	// variable used to store function return value
-	int IResultSubscriber;
+	
 
 	fd_set readfds;
 	timeval timeVal;

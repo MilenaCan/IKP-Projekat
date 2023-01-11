@@ -54,7 +54,7 @@ int main(void)
 	CloseAllSocketsFromList(publisherSockets);
 	CloseAllSocketsFromList(subscriberSockets);
 
-	deleteList(&publisherSockets); // oslobodi memoriju koju je zauzela lista
+	deleteList(&publisherSockets);
 	deleteList(&subscriberSockets);
 
 	closesocket(listenSocketPublisher);

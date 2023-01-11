@@ -2,10 +2,8 @@
 #include "../Common/Subscriber.h"
 
 int __cdecl main(int argc, char** argv) {
-	// variable used to store function return value
-	//
-	int iResult;
-
+	
+	
 
 	char c = ' ';
 
@@ -14,19 +12,18 @@ int __cdecl main(int argc, char** argv) {
 		{
 			// we won't log anything since it will be logged
 			// by InitializeWindowsSockets() function
-			printf("greska je u inicijalizaciji soketa\n");//provera da li je greska bila ovde
+			printf("Error with socket init\n");
 		}
 
-		printf("proslo inicijalizaciju soketa\n");//nije xD
 		if (Connect() == false) {
-			printf("Connection failed\n");//provera jel problem negde u connectu
+			printf("Connection failed\n");
 			return 1;
 		}
-		printf("konektovan je\n");// nije
-		scanf_s("%c", &c);//ovo je tu samo da mi se ne bi odmah gasila app za sada
+		printf("Subscriber connected..\n");
+		scanf_s("%c", &c);
 	}
 
-	// cleanup
+	
 	closesocket(connectSocket);
 	WSACleanup();
 
