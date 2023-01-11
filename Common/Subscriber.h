@@ -1,6 +1,6 @@
 #pragma once
 #pragma comment(lib, "ws2_32.lib")
-#define _WINSOCK_DEPRECATED_NO_WARNINGS 
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #define DEFAULT_BUFLEN 524
 #define DEFAULT_PORT 27017
 #define SAFE_DELETE_HANDLE(a) if(a){CloseHandle(a);} 
@@ -13,9 +13,12 @@
 #include <stdio.h>
 #include <conio.h>
 #include "Structs.h"
+#include <string.h>
 
 bool InitializeWindowsSockets();
 bool Connect();
+DWORD WINAPI FunkcijaThread1(LPVOID param);
+void Subscribe(void* topic);
 
 SOCKET connectSocket = INVALID_SOCKET;
 
@@ -47,6 +50,20 @@ bool Connect() {
 	return true;
 }
 
+void Subscribe(void* topic) {
+
+	char* message = (char*)topic;
+
+	int iResult = send(connectSocket, message, strlen(message), 0);
+
+	if (iResult == SOCKET_ERROR)
+	{
+		printf("send failed with error: %d\n", WSAGetLastError());
+	}
+
+
+}
+
 bool InitializeWindowsSockets()
 {
 	WSADATA wsaData;
@@ -58,5 +75,9 @@ bool InitializeWindowsSockets()
 	}
 	return true;
 }
+
+
+
+
 
 

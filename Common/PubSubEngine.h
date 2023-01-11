@@ -1,10 +1,14 @@
 #pragma once
 #pragma once
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define MAX_QUEUE_SIZE 500
 #include "Structs.h"
 #include <stdio.h>
 #include <ws2tcpip.h>
 #include "List.h"
+#include "Subscriber.h"
+#include "Queue.h"
+#include "HashMap.h"
 #pragma comment(lib, "ws2_32.lib")
 
 #define DEFAULT_BUFLEN 524
@@ -12,12 +16,30 @@
 #define PUBLISHER_PORT "27016"
 #define SUBSCRIBER_PORT "27017"
 
+QUEUE queue;
+CRITICAL_SECTION criticalSectionForQueue, criticalSectionForPublisher, criticalSectionForSubscribers, criticalSectionForListOfSubscribers;
+HANDLE FinishSignal, QueueIsFull, QueueIsEmpty, publisherIsWorking, publisherFinished;
 socketForList* publisherSockets = NULL;
 socketForList* subscriberSockets = NULL;
+subscribers* map[map_size];
 
-HANDLE t1, t3;
+HANDLE t1, t2, t3;
 
-DWORD thread1ID, thread3ID;
+DWORD thread1ID, thread2ID, thread3ID;
+
+void InitAllNecessaryCriticalSection() {
+	InitializeCriticalSection(&criticalSectionForQueue);
+	InitializeCriticalSection(&criticalSectionForPublisher);
+	InitializeCriticalSection(&criticalSectionForSubscribers);
+	InitializeCriticalSection(&criticalSectionForListOfSubscribers);
+}
+
+void DeleteAllNecessaryCriticalSection() {
+	DeleteCriticalSection(&criticalSectionForQueue);
+	DeleteCriticalSection(&criticalSectionForPublisher);
+	DeleteCriticalSection(&criticalSectionForSubscribers);
+	DeleteCriticalSection(&criticalSectionForListOfSubscribers);
+}
 
 bool InitializeWindowsSockets() {
 	WSADATA wsaData;
@@ -90,6 +112,27 @@ SOCKET InitializeListenSocket(const char* port) {
 	return listenSocket;
 }
 
+void CreateAllSemaphores() {
+
+	FinishSignal = CreateSemaphore(0, 0, 6, NULL);
+	QueueIsFull = CreateSemaphore(0, 0, MAX_QUEUE_SIZE, NULL);
+	QueueIsEmpty = CreateSemaphore(0, MAX_QUEUE_SIZE, MAX_QUEUE_SIZE, NULL);
+	publisherIsWorking = CreateSemaphore(0, 0, 1, NULL);
+	publisherFinished = CreateSemaphore(0, 0, 1, NULL);
+}
+
+
+void DeleteAllThreadsAndSemaphores() {
+	SAFE_DELETE_HANDLE(t1);
+	SAFE_DELETE_HANDLE(t2);
+	SAFE_DELETE_HANDLE(t3);
+	SAFE_DELETE_HANDLE(FinishSignal);
+	SAFE_DELETE_HANDLE(QueueIsEmpty);
+	SAFE_DELETE_HANDLE(QueueIsFull);
+	SAFE_DELETE_HANDLE(publisherIsWorking);
+	SAFE_DELETE_HANDLE(publisherFinished);
+}
+
 DWORD WINAPI FunkcijaThread1(LPVOID param) {
 
 	SOCKET listenSocketPublisher = *(SOCKET*)param;
@@ -110,9 +153,9 @@ DWORD WINAPI FunkcijaThread1(LPVOID param) {
 	timeVal.tv_usec = 0;
 
 
-	//MORA DA BUDE U PETLJI ZATO JE SAMO OBICNA WHILE PETLJA
+	
 
-	while (true) {
+	while (WaitForSingleObject(FinishSignal, 500) == WAIT_TIMEOUT) {
 		FD_ZERO(&readfds);
 		FD_SET(listenSocketPublisher, &readfds);
 		int selectResult = select(0, &readfds, NULL, NULL, &timeVal);
@@ -157,8 +200,10 @@ DWORD WINAPI FunkcijaThread1(LPVOID param) {
 				}
 				else {
 					//we need to add socket into a list of accepted sockets
+					EnterCriticalSection(&criticalSectionForPublisher);
 					Add(&publisherSockets, acceptedSocketPublisher);
-
+					LeaveCriticalSection(&criticalSectionForPublisher);
+					ReleaseSemaphore(publisherIsWorking, 1, NULL); //obavesti THREAD 2 da moze da prolazi korz acceptedSockete publishera i da proverava da li se desio neki dogadjaj na nekom od njih
 					lastIndex++;
 					printf("New Publisher request accpeted (%d). Client address: %s : %d\n", lastIndex, inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
 				}
@@ -166,11 +211,136 @@ DWORD WINAPI FunkcijaThread1(LPVOID param) {
 
 		}
 	}
+
+	ReleaseSemaphore(publisherFinished, 1, NULL);
 	// cleanup
 	closesocket(listenSocketPublisher);
 
 	WSACleanup();
 
+	return 0;
+}
+
+DWORD WINAPI FunkcijaThread2(LPVOID param) {
+
+	int iResult;
+
+	char recvbuf[DEFAULT_BUFLEN];
+
+	fd_set readfds;
+	timeval timeVal;
+	timeVal.tv_sec = 1;
+	timeVal.tv_usec = 0;
+	DATA* result;
+	socketForList* current = NULL;
+	bool finish = false;
+	if (InitializeWindowsSockets() == false)
+	{
+		// we won't log anything since it will be logged
+		// by InitializeWindowsSockets() function
+		return 1;
+	}
+
+	const int numOfSemaphore = 2;
+	HANDLE semaphores[numOfSemaphore] = { publisherIsWorking, publisherFinished };
+
+	while (WaitForSingleObject(FinishSignal, 500) == WAIT_TIMEOUT) {
+
+		current = publisherSockets; // mora ovde zbog publisherSockets jer je globalna promenljiva pa da svaki put imamo one koje je dodala Thread 1 
+		while (current == NULL) {
+			// bilo je nekoliko publishera pa su se svi odjavili i sad opet blokiraj nit dok se bar 1 publisher ne prijavi
+			//WaitForSingleObject(publisherSemafor, INFINITE);
+			if (WaitForMultipleObjects(numOfSemaphore, semaphores, FALSE, INFINITE) == WAIT_OBJECT_0 + 1) {
+				finish = true;
+				break;
+			}
+			current = publisherSockets; //uzmi i te nove koji su se naknadno prijavili.
+		}
+
+		if (finish) break;
+
+		FD_ZERO(&readfds);
+
+		EnterCriticalSection(&criticalSectionForPublisher);
+		while (current != NULL)
+		{
+			FD_SET(current->acceptedSocket, &readfds);
+			current = current->next;
+		}
+		LeaveCriticalSection(&criticalSectionForPublisher);
+
+
+		int selectResult = select(0, &readfds, NULL, NULL, &timeVal);
+
+		if (selectResult == SOCKET_ERROR) {
+
+			printf("select failed with error: %d\n", WSAGetLastError());
+			
+		}
+		else if (selectResult == 0) {
+			// vreme zadato u timeVal isteklo a pri tome se nije desio
+			//ni jedan dogadjaj ni na jednom socketu -> nastavi dalje da slusas
+			continue;
+		}
+		else {
+			EnterCriticalSection(&criticalSectionForPublisher);
+			current = publisherSockets; // vracanje trenutni da pokazuje opet na pocetak liste;
+			while (current != NULL)
+			{
+				if (FD_ISSET(current->acceptedSocket, &readfds)) {
+
+
+					// Receive data until the client shuts down the connection
+					iResult = recv(current->acceptedSocket, recvbuf, (int)(sizeof(DATA)), 0);
+					if (iResult > 0)
+					{
+						result = (DATA*)recvbuf;
+						//Ovde ce da ceka semafor empty (skinuo sam sa queueu nije vise pun, mozes da ubacis na queue)
+						WaitForSingleObject(QueueIsEmpty, INFINITE);
+						EnterCriticalSection(&criticalSectionForQueue);
+
+						Enqueue(&queue, *result);
+						//ShowQueue(&queue);
+						LeaveCriticalSection(&criticalSectionForQueue);
+						current = current->next; // promena na sledeci socekt za sledecu iteraciju
+						ReleaseSemaphore(QueueIsFull, 1, NULL);
+					}
+					else if (iResult == 0)
+					{
+						// connection was closed gracefully
+						printf("Connection with publisher closed.\n");
+						closesocket(current->acceptedSocket);
+
+						socketForList* socketForRemove = current;
+						current = current->next;  // ovo mora ovde da se odradi, jer da sam porosledio da obrise trenutnog izgubili bi svaki socket u listi posle trenutnog
+						Remove(&publisherSockets, socketForRemove->acceptedSocket);
+
+					}
+					else
+					{
+						// there was an error during recv
+						// ovde ce uci kada se klijent konzolna app ugasi na X u gornjem desnom uglu
+						printf("publisher recv failed with error: %d\n", WSAGetLastError());
+						closesocket(current->acceptedSocket);
+
+						socketForList* socketForRemove = current;
+						current = current->next;  // ovo mora ovde da se odradi, jer da sam porosledio da obrise trenutnog izgubili bi svaki socket u listi posle trenutnog
+						Remove(&publisherSockets, socketForRemove->acceptedSocket);
+
+
+					}
+
+				}
+				else current = current->next;
+
+			}
+			LeaveCriticalSection(&criticalSectionForPublisher);
+		}
+
+
+	}
+
+	WSACleanup();
 	return 0;
 }
 
@@ -188,6 +358,9 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 	timeVal.tv_usec = 0;
 	unsigned long mode = 1;
 
+	int IResultSubscriber;
+	char recvbuf[DEFAULT_BUFLEN];
+
 	socketForList* currentSocket = NULL;
 
 	if (InitializeWindowsSockets() == false)
@@ -197,9 +370,9 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 		return 1;
 	}
 
-	//UBACILA SAM OBICNU WHILE PETLJU JER MORA DA BUDE U PETLJI
+	
 
-	while (true) {
+	while (WaitForSingleObject(FinishSignal, 1000) == WAIT_TIMEOUT) {
 		currentSocket = subscriberSockets;
 
 		FD_ZERO(&readfds);
@@ -221,8 +394,7 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 		}
 		else if (selectResult == 0) {
 			//timeVal has expired and no action has happened
-			//I OVO MOZEMO OBRISATI
-			printf("Nije se desio nijedan slucaj...");
+						
 			continue;
 
 		}
@@ -255,16 +427,129 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 					}
 				}
 			}
+			else {
+				//EnterCriticalSection(&criticalSectionForListOfSubscribers); THREAD 2 samo radi sa listom subscriber - a
+				currentSocket = subscriberSockets; // vracanje trenutni da pokazuje opet na pocetak liste;
+				while (currentSocket != NULL)
+				{
+					if (FD_ISSET(currentSocket->acceptedSocket, &readfds)) {
 
+						// Receive data until the client shuts down the connection
+						IResultSubscriber = recv(currentSocket->acceptedSocket, recvbuf, DEFAULT_BUFLEN, 0);
+						if (IResultSubscriber > 0)
+						{
+							recvbuf[IResultSubscriber] = '\0';
+
+							strcpy_s(recvbuf, TopicToLower(recvbuf));
+							printf("Message received from subscriber: %s.\n", recvbuf);
+
+							subscribers* temp = FindSubscriberInMap(map, recvbuf);
+							if (temp == NULL) {
+								//nema niko za taj topic treba da se napravi novi da se doda u listu accepted socketa za taj topic;
+								subscribers* newSubscriber = CreateSubscriber(recvbuf);
+								if (newSubscriber == NULL)
+									printf("Failed creating new topic and subscriber!\n");
+								else {
+									EnterCriticalSection(&criticalSectionForSubscribers);
+									if (Add(&newSubscriber->socketsConnectedToTopic, currentSocket->acceptedSocket)) {
+
+										printf("Subscriber has been added in a list for topic!\n");
+										if (AddToMap(map, newSubscriber))
+											printf("Successful added to map!\n");
+										else  
+											printf("Adding into the map has failed with an error...\n");
+									}
+									else 
+										printf("Subscriber has not been added into list...");
+									LeaveCriticalSection(&criticalSectionForSubscribers);
+								}
+							}
+							else {
+								//topic vec postoji treba samo proveriti da li subscriber vec postoji u listi subova za taj topic posto moze da se prijavi na 2 
+								EnterCriticalSection(&criticalSectionForSubscribers);
+								if (!FindInList(&temp->socketsConnectedToTopic, currentSocket->acceptedSocket)) {
+
+									if (Add(&temp->socketsConnectedToTopic, currentSocket->acceptedSocket)) 
+										printf("Subscriber has been added into list!\n");
+									else 
+										printf("Subscriber has not been added into list...\n");
+								}
+								else printf("Vec postoji ne moze se pretplatiti 2 puta na istu temu\n");
+								LeaveCriticalSection(&criticalSectionForSubscribers);
+							}
+
+							//printTable(tabela);
+							currentSocket = currentSocket->next; // promena na sledeci socekt za sledecu iteraciju
+						}
+						else if (IResultSubscriber == 0)
+						{
+							// connection was closed gracefully
+							printf("Connection with subscriber closed.\n");
+							closesocket(currentSocket->acceptedSocket);
+
+
+							EnterCriticalSection(&criticalSectionForSubscribers);
+							DeleteSubscriber(map, currentSocket->acceptedSocket);//obrisace ga iz svake liste za koji je topic bio prijavljen
+							LeaveCriticalSection(&criticalSectionForSubscribers);
+							lastIndexSub--;
+
+							socketForList* socketForRemove = currentSocket;
+							currentSocket = currentSocket->next;  // ovo mora ovde da se odradi, jer da sam porosledio da obrise trenutnog izgubili bi svaki socket u listi posle trenutnog
+
+							//EnterCriticalSection(&criticalSectionForListOfSubscribers);
+							Remove(&subscriberSockets, socketForRemove->acceptedSocket);
+							//LeaveCriticalSection(&criticalSectionForListOfSubscribers);
+							//printTable(tabela);
+
+						}
+						else
+						{
+							// there was an error during recv
+							// ovde ce uci kada se klijent konzolna app ugasi na X u gornjem desnom uglu
+							printf("subscriber recv failed with error: %d\n", WSAGetLastError());
+							closesocket(currentSocket->acceptedSocket);
+
+							EnterCriticalSection(&criticalSectionForSubscribers);
+							DeleteSubscriber(map, currentSocket->acceptedSocket); //obrisace ga iz svake liste za koji je topic bio prijavljen
+							LeaveCriticalSection(&criticalSectionForSubscribers);
+							lastIndexSub--;
+
+							socketForList* socketForRemove = currentSocket;
+							currentSocket = currentSocket->next;  // ovo mora ovde da se odradi, jer da sam porosledio da obrise trenutnog izgubili bi svaki socket u listi posle trenutnog
+							
+							Remove(&subscriberSockets, socketForRemove->acceptedSocket);
+							
+
+
+						}
+
+					}
+					else currentSocket = currentSocket->next;
+
+				}
+				
+
+			}
 		}
 	}
+
 
 	closesocket(listenSocketSubscriber);
 	WSACleanup();
 	return 0;
 }
 
+
 void CreateAllThreads(SOCKET* listenSocketPublisher, SOCKET* listenSocketSubscriber) {
 	t1 = CreateThread(NULL, 0, &FunkcijaThread1, listenSocketPublisher, 0, &thread1ID);
+	t2 = CreateThread(NULL, 0, &FunkcijaThread2, NULL, 0, &thread2ID);
 	t3 = CreateThread(NULL, 0, &FunkcijaThread3, listenSocketSubscriber, 0, &thread3ID);
+}
+
+char* TopicToLower(char* topic) {
+
+	for (unsigned int i = 0; i < strlen(topic); i++) {
+		topic[i] = tolower(topic[i]);
+	}
+	return topic;
 }

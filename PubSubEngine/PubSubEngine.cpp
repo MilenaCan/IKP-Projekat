@@ -6,8 +6,7 @@
 #include <iostream>
 
 
-int main(void)
-{
+int main(void){
 	// Socket used for listening for new clients 
 	SOCKET listenSocketPublisher = INVALID_SOCKET;
 	SOCKET listenSocketSubscriber = INVALID_SOCKET;
@@ -42,17 +41,49 @@ int main(void)
 
 	printf("Server initialized, waiting for clients.\n");
 
+	InitializeQUEUE(&queue);
+	CreateMap(map);
+	InitAllNecessaryCriticalSection();
+
+	CreateAllSemaphores();
+
 	CreateAllThreads(&listenSocketPublisher, &listenSocketSubscriber);
+
+	if (!t1 || !t2 || !t3 ) {
+
+		ReleaseSemaphore(FinishSignal, 6, NULL);
+	}
+
+	while (true) {
+
+		if (_kbhit()) {
+			char c = _getch();
+			if (c == 'q') {
+				ReleaseSemaphore(FinishSignal, 6, NULL);
+				break;
+			}
+		}
+	}
 
 	if (t1) {
 		WaitForSingleObject(t1, INFINITE);
+	}
+	if (t2) {
+		WaitForSingleObject(t2, INFINITE);
 	}
 	if (t3) {
 		WaitForSingleObject(t3, INFINITE);
 	}
 
+	DeleteAllThreadsAndSemaphores();
+	DeleteAllNecessaryCriticalSection();
+
+	ClearQueue(&queue);
+
 	CloseAllSocketsFromList(publisherSockets);
 	CloseAllSocketsFromList(subscriberSockets);
+
+	DeleteMap(map);
 
 	deleteList(&publisherSockets);
 	deleteList(&subscriberSockets);

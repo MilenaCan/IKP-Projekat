@@ -69,6 +69,33 @@ void deleteList(socketForList** head) {
 	*head = current;
 }
 
+bool FindInList(socketForList** head, SOCKET socket) {
+
+	socketForList* temp = NULL;
+	socketForList* current = *head;
+	while (current != NULL) {
+		if (current->acceptedSocket == socket)
+			return true;
+		current = current->next;
+	}
+
+	return false;
+}
+void print_list(socketForList* head) {
+	if (head == NULL) {
+		printf("List is empty!");
+		return;
+	}
+
+	socketForList* current = head;
+
+	while (current != NULL) {
+		printf("%d\n", current->acceptedSocket);
+		current = current->next;
+	}
+
+	printf("\n");
+}
 
 void CloseAllSocketsFromList(socketForList* lista) {
 	int iResult;

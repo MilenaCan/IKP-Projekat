@@ -4,10 +4,8 @@
 int __cdecl main(int argc, char** argv) {
 	
 	
+		int iResult;
 
-	char c = ' ';
-
-	while (c != 'a') {
 		if (InitializeWindowsSockets() == false)
 		{
 			// we won't log anything since it will be logged
@@ -19,9 +17,17 @@ int __cdecl main(int argc, char** argv) {
 			printf("Connection failed\n");
 			return 1;
 		}
-		printf("Subscriber connected..\n");
-		scanf_s("%c", &c);
-	}
+
+		char topic[] = "";
+		char signal;
+		char type;
+		int num;
+		printf("Format of the topic is signal.type.num.\n");
+		printf("For signal you can choose STATUS or ANALOG.\n\t If you choose STATUS it must be FUSE or BREAKER.\n\tIf you choose ANALOG it must be SEC_A or SEC_V.\n");
+		printf("NUM is the number of device.\n");
+		printf("Please enter your topic: \n");
+		scanf("%s", &topic);
+		
 
 	
 	closesocket(connectSocket);

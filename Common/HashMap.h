@@ -9,7 +9,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 #define map_size 16
 
-void createMap(subscribers** map) {
+void CreateMap(subscribers** map) {
 	for (int i = 0; i < map_size; i++) {
 		map[i] = NULL;
 
@@ -30,7 +30,7 @@ unsigned int HashFunction(const char* topic) {
 
 }
 
-bool AddToTable(subscribers** map, subscribers* subscriber) {
+bool AddToMap(subscribers** map, subscribers* subscriber) {
 	if (subscriber == NULL) return false;
 	int index = HashFunction(subscriber->topic);
 
@@ -101,7 +101,7 @@ bool DeleteFromMap(subscribers** map, char* topic) {
 	return true;
 }
 
-void DeleteAllTable(subscribers** map) {
+void DeleteMap(subscribers** map) {
 	for (int i = 0; i < map_size; i++) {
 		if (map[i] == NULL) continue;
 		else {
