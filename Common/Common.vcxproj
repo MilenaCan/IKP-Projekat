@@ -143,6 +143,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="HashMap.h" />
     <ClInclude Include="Queue.h" />
     <ClInclude Include="List.h" />
     <ClInclude Include="Publisher.h" />

@@ -1,14 +1,9 @@
 #pragma once
 #include <WinSock2.h>
 
-typedef struct topic {
-	char signal[7];
-	char type[7];
-	int num;
-}TOPIC;
 
 typedef struct data {
-	topic topic;
+	char topic[30];
 	char message[500];
 }DATA;
 
@@ -33,5 +28,12 @@ typedef struct socketForList {
 
 
 
+
+typedef struct subscribers {
+
+	char topic[30];
+	socketForList* socketsConnectedToTopic;
+	struct subscribers* next;
+}SUBSCRIBERS;
 
 
