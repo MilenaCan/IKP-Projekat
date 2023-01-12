@@ -18,16 +18,16 @@ int __cdecl main(int argc, char** argv) {
 			printf("Connection failed\n");
 			return 1;
 		}
-		char topic[100];
-		char message[250];
-		char topicToLower[100];
+		char topic[100]="";
+		char message[250]="";
+		char topicToLower[100]="";
 		bool resultForsignal = true;
 		bool resultForType1 = true;
 		bool resultForType2 = true;
 		bool resultForNum = true;
 		int parts_count = 0;
-		char signal[100];
-		char num[100];
+		char signal[100]="";
+		char num[100]="";
 
 
 		printf("Enter a topic: ");

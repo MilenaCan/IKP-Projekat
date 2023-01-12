@@ -555,14 +555,28 @@ DWORD WINAPI FunkcijaThreadPool(LPVOID param) {
 	const int numOfSemaphores = 2;
 
 	HANDLE semaphores[numOfSemaphores] = { FinishSignal,QueueIsFull };
-	DATA result;
 	int id = (int)param;
 	while (WaitForMultipleObjects(numOfSemaphores, semaphores, FALSE, INFINITE) == WAIT_OBJECT_0 + 1) {
 		
 		socketForList* listOfSubscribers = NULL;
+		DATA result;
+
+		EnterCriticalSection(&criticalSectionForQueue);
+		printf("\tID: %d\n", id);
+		if (Dequeue(&queue, &result)) {
+			printf("====Removed from queue=====\n");
+			printf("Topic: %s \n", result.topic);
+			printf("Message: %s\n\n", result.message);
+			printf("===========================\n");
+		}
+		else {
+			printf("Unsuccessful removing from queue\n");
+		}
+		LeaveCriticalSection(&criticalSectionForQueue);
 
 		EnterCriticalSection(&criticalSectionForSubscribers);
 		subscribers* temp = FindSubscriberInMap(map, result.topic);
+		printMap(map);
 		LeaveCriticalSection(&criticalSectionForSubscribers);
 
 		char noTopic[150];
@@ -586,19 +600,6 @@ DWORD WINAPI FunkcijaThreadPool(LPVOID param) {
 			}
 			LeaveCriticalSection(&criticalSectionForSubscribers);
 		}
-
-		EnterCriticalSection(&criticalSectionForQueue);
-		printf("\tID: %d\n", id);
-		if (Dequeue(&queue, &result)) {
-			printf("====Removed from queue=====\n");
-			printf("Topic: %s \n", result.topic);
-			printf("Message: %s\n\n", result.message);
-			printf("===========================\n");
-		}
-		else {
-			printf("Unsuccessful removing from queue\n");
-		}
-		LeaveCriticalSection(&criticalSectionForQueue);
 
 		ReleaseSemaphore(QueueIsEmpty, 1, NULL);
 	}
