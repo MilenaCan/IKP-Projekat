@@ -1,6 +1,7 @@
 #pragma once
 #pragma comment(lib, "ws2_32.lib")
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 #define DEFAULT_BUFLEN 524
 #define DEFAULT_PORT 27017
 #define SAFE_DELETE_HANDLE(a) if(a){CloseHandle(a);} 
@@ -76,6 +77,49 @@ bool InitializeWindowsSockets()
 	return true;
 }
 
+
+
+char** separate_string(char* str, char separator, int* parts_count) {
+	char** parts = (char**)malloc(sizeof(char*) * strlen(str));
+	char* current_part = (char*)malloc(sizeof(char) * strlen(str));
+	int current_part_len = 0;
+
+	int parts_index = 0;
+	for (int i = 0; i < strlen(str); i++) {
+		if (str[i] == separator) {
+			current_part[current_part_len] = '\0';
+			parts[parts_index] = current_part;
+
+			current_part = (char*)malloc(sizeof(char) * strlen(str));
+			current_part_len = 0;
+			parts_index++;
+		}
+		else {
+			current_part[current_part_len] = str[i];
+			current_part_len++;
+		}
+	}
+	current_part[current_part_len] = '\0';
+	parts[parts_index] = current_part;
+
+	*parts_count = parts_index + 1;
+	return parts;
+}
+
+void HeaderForEnteringTopic() {
+	printf("Format of the topic is signal.type.num.\n");
+	printf("For signal you can choose STATUS or ANALOG.\n\t If you choose STATUS it must be FUSE or BREAKER.\n\tIf you choose ANALOG it must be SEC_A or SEC_V.\n");
+	printf("NUM is the number of device.\n");
+	printf("Please enter your topic: \n");
+}
+
+char* TopicToLower(char* topic) {
+
+	for (unsigned int i = 0; i < strlen(topic); i++) {
+		topic[i] = tolower(topic[i]);
+	}
+	return topic;
+}
 
 
 

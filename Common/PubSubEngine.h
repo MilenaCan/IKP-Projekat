@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <ws2tcpip.h>
 #include "List.h"
-#include "Subscriber.h"
 #include "Queue.h"
 #include "HashMap.h"
 #pragma comment(lib, "ws2_32.lib")
@@ -26,6 +25,13 @@ subscribers* map[map_size];
 HANDLE t1, t2, t3;
 
 DWORD thread1ID, thread2ID, thread3ID;
+char* TopicToLower(char* topic) {
+
+	for (unsigned int i = 0; i < strlen(topic); i++) {
+		topic[i] = tolower(topic[i]);
+	}
+	return topic;
+}
 
 void InitAllNecessaryCriticalSection() {
 	InitializeCriticalSection(&criticalSectionForQueue);
@@ -170,8 +176,6 @@ DWORD WINAPI FunkcijaThread1(LPVOID param) {
 		}
 		else if (selectResult == 0) {
 			//timeVal has expired without any action
-			//OVO MOZEMO OBRISATI A I NE MORAMO KAKO HOCES
-			printf("Nista se nije desilo...");
 			continue;
 
 		}
@@ -246,15 +250,14 @@ DWORD WINAPI FunkcijaThread2(LPVOID param) {
 
 	while (WaitForSingleObject(FinishSignal, 500) == WAIT_TIMEOUT) {
 
-		current = publisherSockets; // mora ovde zbog publisherSockets jer je globalna promenljiva pa da svaki put imamo one koje je dodala Thread 1 
+		current = publisherSockets; 
 		while (current == NULL) {
-			// bilo je nekoliko publishera pa su se svi odjavili i sad opet blokiraj nit dok se bar 1 publisher ne prijavi
-			//WaitForSingleObject(publisherSemafor, INFINITE);
+			
 			if (WaitForMultipleObjects(numOfSemaphore, semaphores, FALSE, INFINITE) == WAIT_OBJECT_0 + 1) {
 				finish = true;
 				break;
 			}
-			current = publisherSockets; //uzmi i te nove koji su se naknadno prijavili.
+			current = publisherSockets;
 		}
 
 		if (finish) break;
@@ -278,13 +281,12 @@ DWORD WINAPI FunkcijaThread2(LPVOID param) {
 			
 		}
 		else if (selectResult == 0) {
-			// vreme zadato u timeVal isteklo a pri tome se nije desio
-			//ni jedan dogadjaj ni na jednom socketu -> nastavi dalje da slusas
+			
 			continue;
 		}
 		else {
 			EnterCriticalSection(&criticalSectionForPublisher);
-			current = publisherSockets; // vracanje trenutni da pokazuje opet na pocetak liste;
+			current = publisherSockets; 
 			while (current != NULL)
 			{
 				if (FD_ISSET(current->acceptedSocket, &readfds)) {
@@ -295,14 +297,14 @@ DWORD WINAPI FunkcijaThread2(LPVOID param) {
 					if (iResult > 0)
 					{
 						result = (DATA*)recvbuf;
-						//Ovde ce da ceka semafor empty (skinuo sam sa queueu nije vise pun, mozes da ubacis na queue)
+						
 						WaitForSingleObject(QueueIsEmpty, INFINITE);
 						EnterCriticalSection(&criticalSectionForQueue);
 
 						Enqueue(&queue, *result);
-						//ShowQueue(&queue);
+						
 						LeaveCriticalSection(&criticalSectionForQueue);
-						current = current->next; // promena na sledeci socekt za sledecu iteraciju
+						current = current->next; 
 						ReleaseSemaphore(QueueIsFull, 1, NULL);
 					}
 					else if (iResult == 0)
@@ -312,19 +314,19 @@ DWORD WINAPI FunkcijaThread2(LPVOID param) {
 						closesocket(current->acceptedSocket);
 
 						socketForList* socketForRemove = current;
-						current = current->next;  // ovo mora ovde da se odradi, jer da sam porosledio da obrise trenutnog izgubili bi svaki socket u listi posle trenutnog
+						current = current->next;  
 						Remove(&publisherSockets, socketForRemove->acceptedSocket);
 
 					}
 					else
 					{
 						// there was an error during recv
-						// ovde ce uci kada se klijent konzolna app ugasi na X u gornjem desnom uglu
+						
 						printf("publisher recv failed with error: %d\n", WSAGetLastError());
 						closesocket(current->acceptedSocket);
 
 						socketForList* socketForRemove = current;
-						current = current->next;  // ovo mora ovde da se odradi, jer da sam porosledio da obrise trenutnog izgubili bi svaki socket u listi posle trenutnog
+						current = current->next;  
 						Remove(&publisherSockets, socketForRemove->acceptedSocket);
 
 
@@ -429,7 +431,7 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 			}
 			else {
 				//EnterCriticalSection(&criticalSectionForListOfSubscribers); THREAD 2 samo radi sa listom subscriber - a
-				currentSocket = subscriberSockets; // vracanje trenutni da pokazuje opet na pocetak liste;
+				currentSocket = subscriberSockets;
 				while (currentSocket != NULL)
 				{
 					if (FD_ISSET(currentSocket->acceptedSocket, &readfds)) {
@@ -445,7 +447,6 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 
 							subscribers* temp = FindSubscriberInMap(map, recvbuf);
 							if (temp == NULL) {
-								//nema niko za taj topic treba da se napravi novi da se doda u listu accepted socketa za taj topic;
 								subscribers* newSubscriber = CreateSubscriber(recvbuf);
 								if (newSubscriber == NULL)
 									printf("Failed creating new topic and subscriber!\n");
@@ -465,7 +466,6 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 								}
 							}
 							else {
-								//topic vec postoji treba samo proveriti da li subscriber vec postoji u listi subova za taj topic posto moze da se prijavi na 2 
 								EnterCriticalSection(&criticalSectionForSubscribers);
 								if (!FindInList(&temp->socketsConnectedToTopic, currentSocket->acceptedSocket)) {
 
@@ -478,8 +478,8 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 								LeaveCriticalSection(&criticalSectionForSubscribers);
 							}
 
-							//printTable(tabela);
-							currentSocket = currentSocket->next; // promena na sledeci socekt za sledecu iteraciju
+							//printMap(map);
+							currentSocket = currentSocket->next; 
 						}
 						else if (IResultSubscriber == 0)
 						{
@@ -489,33 +489,32 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 
 
 							EnterCriticalSection(&criticalSectionForSubscribers);
-							DeleteSubscriber(map, currentSocket->acceptedSocket);//obrisace ga iz svake liste za koji je topic bio prijavljen
+							DeleteSubscriber(map, currentSocket->acceptedSocket);
 							LeaveCriticalSection(&criticalSectionForSubscribers);
 							lastIndexSub--;
 
 							socketForList* socketForRemove = currentSocket;
-							currentSocket = currentSocket->next;  // ovo mora ovde da se odradi, jer da sam porosledio da obrise trenutnog izgubili bi svaki socket u listi posle trenutnog
+							currentSocket = currentSocket->next; 
 
-							//EnterCriticalSection(&criticalSectionForListOfSubscribers);
+							
 							Remove(&subscriberSockets, socketForRemove->acceptedSocket);
-							//LeaveCriticalSection(&criticalSectionForListOfSubscribers);
-							//printTable(tabela);
+						
+							
 
 						}
 						else
 						{
 							// there was an error during recv
-							// ovde ce uci kada se klijent konzolna app ugasi na X u gornjem desnom uglu
 							printf("subscriber recv failed with error: %d\n", WSAGetLastError());
 							closesocket(currentSocket->acceptedSocket);
 
 							EnterCriticalSection(&criticalSectionForSubscribers);
-							DeleteSubscriber(map, currentSocket->acceptedSocket); //obrisace ga iz svake liste za koji je topic bio prijavljen
+							DeleteSubscriber(map, currentSocket->acceptedSocket); 
 							LeaveCriticalSection(&criticalSectionForSubscribers);
 							lastIndexSub--;
 
 							socketForList* socketForRemove = currentSocket;
-							currentSocket = currentSocket->next;  // ovo mora ovde da se odradi, jer da sam porosledio da obrise trenutnog izgubili bi svaki socket u listi posle trenutnog
+							currentSocket = currentSocket->next;
 							
 							Remove(&subscriberSockets, socketForRemove->acceptedSocket);
 							
@@ -546,10 +545,3 @@ void CreateAllThreads(SOCKET* listenSocketPublisher, SOCKET* listenSocketSubscri
 	t3 = CreateThread(NULL, 0, &FunkcijaThread3, listenSocketSubscriber, 0, &thread3ID);
 }
 
-char* TopicToLower(char* topic) {
-
-	for (unsigned int i = 0; i < strlen(topic); i++) {
-		topic[i] = tolower(topic[i]);
-	}
-	return topic;
-}
