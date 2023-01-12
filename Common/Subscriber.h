@@ -18,8 +18,11 @@
 
 bool InitializeWindowsSockets();
 bool Connect();
-DWORD WINAPI FunkcijaThread1(LPVOID param);
 void Subscribe(void* topic);
+char* TopicToLower(char* topic);
+char** separate_string(char* str, char separator, int* parts_count);
+HANDLE endSignal;
+CRITICAL_SECTION criticalSectionForInput;
 
 SOCKET connectSocket = INVALID_SOCKET;
 
@@ -109,9 +112,11 @@ char** separate_string(char* str, char separator, int* parts_count) {
 void HeaderForEnteringTopic() {
 	printf("Format of the topic is signal.type.num.\n");
 	printf("For signal you can choose STATUS or ANALOG.\n\t If you choose STATUS it must be FUSE or BREAKER.\n\tIf you choose ANALOG it must be SEC_A or SEC_V.\n");
+	printf("\t INSTEAD OF TYPE YOU CAN ENTER '*' FOR BOTH TYPES OF SIGNAL\n");
 	printf("NUM is the number of device.\n");
 	printf("Please enter your topic: \n");
 }
+
 
 char* TopicToLower(char* topic) {
 

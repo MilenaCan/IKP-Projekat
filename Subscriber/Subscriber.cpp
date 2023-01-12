@@ -7,6 +7,8 @@ int __cdecl main(int argc, char** argv) {
 	
 		int iResult;
 		int broj;
+		char recvbuf[DEFAULT_BUFLEN];
+
 		
 
 		if (InitializeWindowsSockets() == false)
@@ -55,12 +57,12 @@ int __cdecl main(int argc, char** argv) {
 
 					}
 
-					if (strcmp(signal, "status") == 0 && strcmp(parts[1], "fuse") != 0 && strcmp(parts[1], "breaker") != 0) {
+					if (strcmp(signal, "status") == 0 && strcmp(parts[1], "fuse") != 0 && strcmp(parts[1], "breaker") != 0 && strcmp(parts[1], "*") != 0) {
 
 						resultForType1 = false;
 						break;
 					}
-					else if (strcmp(signal, "analog") == 0 && strcmp(parts[1], "sec_a") != 0 && strcmp(parts[1], "sec_v") != 0) {
+					else if (strcmp(signal, "analog") == 0 && strcmp(parts[1], "sec_a") != 0 && strcmp(parts[1], "sec_v") != 0 && strcmp(parts[1], "*") != 0) {
 
 						resultForType2 = false;
 						break;
@@ -68,8 +70,6 @@ int __cdecl main(int argc, char** argv) {
 
 					strcpy(num, parts[2]);
 					int length = strlen(num);
-					printf("%s", num);
-					printf("length : %d", length);
 					if (length == 1) {
 						if (!isdigit(num[0]))
 						{
@@ -86,12 +86,6 @@ int __cdecl main(int argc, char** argv) {
 
 					}
 
-
-
-
-
-
-
 				}
 				if (resultForsignal == false) {
 					printf("SIGNAL must be STATUS or ANALOG\n");
@@ -103,11 +97,53 @@ int __cdecl main(int argc, char** argv) {
 					printf("For signal ANALOG type must be SEC_A or SEC_V\n");
 				}
 				else if (resultForNum == false) {
-					printf("For NUM you must enter a NUMBER");
+					printf("For NUM you must enter a NUMBER\n");
 				}
 				else {
-					Subscribe((void *)topicToLower);
+					Subscribe((void*)topicToLower);
 					
+					DATA* result;
+					InitializeCriticalSection(&criticalSectionForInput);
+					endSignal = CreateSemaphore(0, 0, 1, NULL);
+
+					do {
+						printf("\nSAD RADIMO RECV\n");
+
+						// Receive data until the client shuts down the connection
+						iResult = recv(connectSocket, recvbuf, (sizeof(DATA)), 0);
+						printf("\n%d\n", iResult);
+						if (iResult > 0)
+						{
+							printf("\nMessage: %s\n", recvbuf);
+							result = (DATA*)recvbuf;
+
+							EnterCriticalSection(&criticalSectionForInput);
+							printf("============================\n");
+							printf("TOPIC ->\t%s\n", result->topic);
+							printf("MESSAGE ->\t%s \n", result->message);
+							printf("============================\n");
+							LeaveCriticalSection(&criticalSectionForInput);
+						}
+						else if (iResult == 0)
+						{
+							// connection was closed gracefully
+							EnterCriticalSection(&criticalSectionForInput);
+							printf("Connection with PubSubEngine is closed.\n");
+							LeaveCriticalSection(&criticalSectionForInput);
+							closesocket(connectSocket);
+							break;
+						}
+						else
+						{
+							// there was an error during recv
+							EnterCriticalSection(&criticalSectionForInput);
+							printf("recv failed with error: %d\n", WSAGetLastError());
+							LeaveCriticalSection(&criticalSectionForInput);
+							closesocket(connectSocket);
+							break;
+						}
+					} while (true);
+
 					scanf_s("%d", &num);
 				}
 				

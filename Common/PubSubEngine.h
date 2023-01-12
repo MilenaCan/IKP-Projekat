@@ -15,6 +15,7 @@
 #define PUBLISHER_PORT "27016"
 #define SUBSCRIBER_PORT "27017"
 
+extern bool dataReady = true;
 QUEUE queue;
 CRITICAL_SECTION criticalSectionForQueue, criticalSectionForPublisher, criticalSectionForSubscribers, criticalSectionForListOfSubscribers;
 HANDLE FinishSignal, QueueIsFull, QueueIsEmpty, publisherIsWorking, publisherFinished;
@@ -22,9 +23,13 @@ socketForList* publisherSockets = NULL;
 socketForList* subscriberSockets = NULL;
 subscribers* map[map_size];
 
-HANDLE t1, t2, t3;
+bool isTopicThere = true;
 
-DWORD thread1ID, thread2ID, thread3ID;
+HANDLE t1, t2, t3, t4, t5, t6, t7, t8;
+
+DWORD thread1ID, thread2ID, thread3ID, thread4ID, thread5ID, thread6ID, thread7ID, thread8ID;
+
+
 char* TopicToLower(char* topic) {
 
 	for (unsigned int i = 0; i < strlen(topic); i++) {
@@ -303,6 +308,8 @@ DWORD WINAPI FunkcijaThread2(LPVOID param) {
 
 						Enqueue(&queue, *result);
 						
+						
+
 						LeaveCriticalSection(&criticalSectionForQueue);
 						current = current->next; 
 						ReleaseSemaphore(QueueIsFull, 1, NULL);
@@ -338,7 +345,7 @@ DWORD WINAPI FunkcijaThread2(LPVOID param) {
 			}
 			LeaveCriticalSection(&criticalSectionForPublisher);
 		}
-
+		
 
 	}
 
@@ -443,7 +450,11 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 							recvbuf[IResultSubscriber] = '\0';
 
 							strcpy_s(recvbuf, TopicToLower(recvbuf));
-							printf("Message received from subscriber: %s.\n", recvbuf);
+							//printf("Message received from subscriber: %s.\n", recvbuf);
+
+							EnterCriticalSection(&criticalSectionForQueue);
+							isTopicThere = findInQueue(queue,recvbuf);
+							LeaveCriticalSection(&criticalSectionForQueue);
 
 							subscribers* temp = FindSubscriberInMap(map, recvbuf);
 							if (temp == NULL) {
@@ -538,10 +549,75 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 	return 0;
 }
 
+DWORD WINAPI FunkcijaThreadPool(LPVOID param) {
+
+	int iResult;
+	const int numOfSemaphores = 2;
+
+	HANDLE semaphores[numOfSemaphores] = { FinishSignal,QueueIsFull };
+	DATA result;
+	int id = (int)param;
+	while (WaitForMultipleObjects(numOfSemaphores, semaphores, FALSE, INFINITE) == WAIT_OBJECT_0 + 1) {
+		
+		socketForList* listOfSubscribers = NULL;
+
+		EnterCriticalSection(&criticalSectionForSubscribers);
+		subscribers* temp = FindSubscriberInMap(map, result.topic);
+		LeaveCriticalSection(&criticalSectionForSubscribers);
+
+		char noTopic[150];
+		strcpy_s(noTopic,"You chose the topic that does not exist!");
+
+		if (temp != NULL) {
+
+			EnterCriticalSection(&criticalSectionForSubscribers);
+
+			listOfSubscribers = temp->socketsConnectedToTopic;
+
+			while (listOfSubscribers != NULL) {
+				/*if (isTopicThere == false) {
+					iResult = send(listOfSubscribers->acceptedSocket, noTopic, strlen(noTopic), 0);
+				}*/
+				
+				iResult = send(listOfSubscribers->acceptedSocket, (char*)&result, (int)(sizeof(DATA)), 0);
+				
+				listOfSubscribers = listOfSubscribers->next;
+
+			}
+			LeaveCriticalSection(&criticalSectionForSubscribers);
+		}
+
+		EnterCriticalSection(&criticalSectionForQueue);
+		printf("\tID: %d\n", id);
+		if (Dequeue(&queue, &result)) {
+			printf("====Removed from queue=====\n");
+			printf("Topic: %s \n", result.topic);
+			printf("Message: %s\n\n", result.message);
+			printf("===========================\n");
+		}
+		else {
+			printf("Unsuccessful removing from queue\n");
+		}
+		LeaveCriticalSection(&criticalSectionForQueue);
+
+		ReleaseSemaphore(QueueIsEmpty, 1, NULL);
+	}
+
+	return 0;
+}
+
 
 void CreateAllThreads(SOCKET* listenSocketPublisher, SOCKET* listenSocketSubscriber) {
 	t1 = CreateThread(NULL, 0, &FunkcijaThread1, listenSocketPublisher, 0, &thread1ID);
 	t2 = CreateThread(NULL, 0, &FunkcijaThread2, NULL, 0, &thread2ID);
 	t3 = CreateThread(NULL, 0, &FunkcijaThread3, listenSocketSubscriber, 0, &thread3ID);
+
+	//THREAD POOL
+	t4 = CreateThread(NULL, 0, &FunkcijaThreadPool, (LPVOID)0, 0, &thread4ID);
+	t5 = CreateThread(NULL, 0, &FunkcijaThreadPool, (LPVOID)0, 0, &thread5ID);
+	t6 = CreateThread(NULL, 0, &FunkcijaThreadPool, (LPVOID)0, 0, &thread6ID);
+	t7 = CreateThread(NULL, 0, &FunkcijaThreadPool, (LPVOID)0, 0, &thread7ID);
+	t8 = CreateThread(NULL, 0, &FunkcijaThreadPool, (LPVOID)0, 0, &thread8ID);
+	
 }
 

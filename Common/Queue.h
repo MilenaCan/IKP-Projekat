@@ -59,3 +59,15 @@ void ClearQueue(QUEUE* queue) {
 		continue;
 	}
 }
+
+bool findInQueue(QUEUE queue, char* topic) {
+	NODE* current = queue.front;
+	while (current != NULL) {
+		if (strcmp(current->data.topic, topic) == 0) {
+			return true;
+		}
+		current = current->next;
+	}
+	return false;
+}
+

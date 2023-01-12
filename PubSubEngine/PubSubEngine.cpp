@@ -49,7 +49,7 @@ int main(void){
 
 	CreateAllThreads(&listenSocketPublisher, &listenSocketSubscriber);
 
-	if (!t1 || !t2 || !t3 ) {
+	if (!t1 || !t2 || !t3 || !t4 || !t5 || !t6 || !t7 || !t8) {
 
 		ReleaseSemaphore(FinishSignal, 6, NULL);
 	}
@@ -58,7 +58,7 @@ int main(void){
 
 		if (_kbhit()) {
 			char c = _getch();
-			if (c == 'q') {
+			if (c == 'X') {
 				ReleaseSemaphore(FinishSignal, 6, NULL);
 				break;
 			}
@@ -73,6 +73,21 @@ int main(void){
 	}
 	if (t3) {
 		WaitForSingleObject(t3, INFINITE);
+	}
+	if (t4) {
+		WaitForSingleObject(t4, INFINITE);
+	}
+	if (t5) {
+		WaitForSingleObject(t5, INFINITE);
+	}
+	if (t6) {
+		WaitForSingleObject(t6, INFINITE);
+	}
+	if (t7) {
+		WaitForSingleObject(t7, INFINITE);
+	}
+	if (t8) {
+		WaitForSingleObject(t8, INFINITE);
 	}
 
 	DeleteAllThreadsAndSemaphores();
