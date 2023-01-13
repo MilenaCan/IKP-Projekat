@@ -30,7 +30,6 @@ typedef struct socketForList {
 
 
 typedef struct subscribers {
-
 	char topic[30];
 	socketForList* socketsConnectedToTopic;
 	struct subscribers* next;

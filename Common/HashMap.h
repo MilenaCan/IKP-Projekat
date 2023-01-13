@@ -31,7 +31,8 @@ unsigned int HashFunction(const char* topic) {
 }
 
 bool AddToMap(subscribers** map, subscribers* subscriber) {
-	if (subscriber == NULL) return false;
+	if (subscriber == NULL)
+		return false;
 	int index = HashFunction(subscriber->topic);
 
 	subscriber->next = map[index];
@@ -43,7 +44,8 @@ bool AddToMap(subscribers** map, subscribers* subscriber) {
 subscribers* CreateSubscriber(const char* topic) {
 
 	subscribers* newSubscriber = (subscribers*)malloc(sizeof(subscribers));
-	if (newSubscriber == NULL) return NULL;
+	if (newSubscriber == NULL)
+		return NULL;
 
 	strcpy_s(newSubscriber->topic, topic);
 	newSubscriber->socketsConnectedToTopic = NULL;
@@ -60,20 +62,20 @@ subscribers* FindSubscriberInMap(subscribers** map, const char* topic) {
 }
 
 void DeleteSubscriber(subscribers** map, SOCKET socket) {
-	 
+
 	for (int i = 0; i < map_size; i++) {
-		if (map[i] == NULL) continue;
+		if (map[i] == NULL)
+			continue;
 		else {
 			subscribers* temp = map[i];
 			while (temp != NULL)
 				if (Remove(&temp->socketsConnectedToTopic, socket)) {
 					printf("Deleting subscriber..\n");
 				}
-				temp = temp->next;
+			temp = temp->next;
 		}
 	}
 }
-
 
 
 bool DeleteFromMap(subscribers** map, char* topic) {
@@ -114,7 +116,7 @@ void DeleteMap(subscribers** map) {
 }
 
 void printMap(subscribers** map) {
-	printf("====================HashMap====================\n");
+	printf("====================HashMap=============================\n");
 	for (int i = 0; i < map_size; i++) {
 		if (map[i] == NULL) {
 			printf("%i \t EMPTY\n", i);
@@ -124,18 +126,18 @@ void printMap(subscribers** map) {
 			subscribers* temp = map[i];
 			while (temp != NULL)
 			{
-				printf("-----------TOPIC : %s-------------\nList of subscribers that are connected to topic:\n  ", temp->topic);
+				printf("-----------TOPIC : %s-------------\n\tList of subscribers that are connected to topic:\n  ", temp->topic);
 				socketForList* connectedSockets = temp->socketsConnectedToTopic;
 				while (connectedSockets != NULL) {
-					printf("\t- %d -\n ", connectedSockets->acceptedSocket);
+					printf("\t\t\t- %d -\n ", connectedSockets->acceptedSocket);
 					connectedSockets = connectedSockets->next;
 				}
-				printf(" END OF LIST FOR TOPIC : %s\n", temp->topic);
-				printf("___________________________________");
+				printf("\tEND OF LIST FOR TOPIC : %s\n", temp->topic);
+				printf("\t_______________________________________________");
 				temp = temp->next;
 			}
 			printf("\n");
 		}
 	}
-	printf("===============================================\n");
+	printf("========================================================\n");
 }

@@ -136,7 +136,12 @@ void CreateAllSemaphores() {
 void DeleteAllThreadsAndSemaphores() {
 	SAFE_DELETE_HANDLE(t1);
 	SAFE_DELETE_HANDLE(t2);
-	SAFE_DELETE_HANDLE(t3);
+	SAFE_DELETE_HANDLE(t3); 
+	SAFE_DELETE_HANDLE(t4);
+	SAFE_DELETE_HANDLE(t5);
+	SAFE_DELETE_HANDLE(t6);
+	SAFE_DELETE_HANDLE(t7);
+	SAFE_DELETE_HANDLE(t8);
 	SAFE_DELETE_HANDLE(FinishSignal);
 	SAFE_DELETE_HANDLE(QueueIsEmpty);
 	SAFE_DELETE_HANDLE(QueueIsFull);
@@ -212,7 +217,7 @@ DWORD WINAPI FunkcijaThread1(LPVOID param) {
 					EnterCriticalSection(&criticalSectionForPublisher);
 					Add(&publisherSockets, acceptedSocketPublisher);
 					LeaveCriticalSection(&criticalSectionForPublisher);
-					ReleaseSemaphore(publisherIsWorking, 1, NULL); //obavesti THREAD 2 da moze da prolazi korz acceptedSockete publishera i da proverava da li se desio neki dogadjaj na nekom od njih
+					ReleaseSemaphore(publisherIsWorking, 1, NULL); 
 					lastIndex++;
 					printf("New Publisher request accpeted (%d). Client address: %s : %d\n", lastIndex, inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
 				}
@@ -265,7 +270,8 @@ DWORD WINAPI FunkcijaThread2(LPVOID param) {
 			current = publisherSockets;
 		}
 
-		if (finish) break;
+		if (finish) 
+			break;
 
 		FD_ZERO(&readfds);
 
@@ -437,7 +443,7 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 				}
 			}
 			else {
-				//EnterCriticalSection(&criticalSectionForListOfSubscribers); THREAD 2 samo radi sa listom subscriber - a
+				
 				currentSocket = subscriberSockets;
 				while (currentSocket != NULL)
 				{
@@ -452,9 +458,6 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 							strcpy_s(recvbuf, TopicToLower(recvbuf));
 							//printf("Message received from subscriber: %s.\n", recvbuf);
 
-							EnterCriticalSection(&criticalSectionForQueue);
-							isTopicThere = findInQueue(queue,recvbuf);
-							LeaveCriticalSection(&criticalSectionForQueue);
 
 							subscribers* temp = FindSubscriberInMap(map, recvbuf);
 							if (temp == NULL) {
@@ -485,7 +488,8 @@ DWORD WINAPI FunkcijaThread3(LPVOID param) {
 									else 
 										printf("Subscriber has not been added into list...\n");
 								}
-								else printf("Vec postoji ne moze se pretplatiti 2 puta na istu temu\n");
+								else 
+									printf("Subscriber has already been subscribed to that topic!\n");
 								LeaveCriticalSection(&criticalSectionForSubscribers);
 							}
 
@@ -579,8 +583,7 @@ DWORD WINAPI FunkcijaThreadPool(LPVOID param) {
 		printMap(map);
 		LeaveCriticalSection(&criticalSectionForSubscribers);
 
-		char noTopic[150];
-		strcpy_s(noTopic,"You chose the topic that does not exist!");
+		
 
 		if (temp != NULL) {
 
@@ -589,10 +592,7 @@ DWORD WINAPI FunkcijaThreadPool(LPVOID param) {
 			listOfSubscribers = temp->socketsConnectedToTopic;
 
 			while (listOfSubscribers != NULL) {
-				/*if (isTopicThere == false) {
-					iResult = send(listOfSubscribers->acceptedSocket, noTopic, strlen(noTopic), 0);
-				}*/
-				
+
 				iResult = send(listOfSubscribers->acceptedSocket, (char*)&result, (int)(sizeof(DATA)), 0);
 				
 				listOfSubscribers = listOfSubscribers->next;

@@ -59,7 +59,7 @@ bool Connect() {
 		WSACleanup();
 		return false;
 	}
-	printf("konekcija uspesna");
+	
 
 	return true;
 }

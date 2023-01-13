@@ -4,14 +4,15 @@
 #include "../Common/Publisher.h"
 
 int __cdecl main(int argc, char** argv) {
-	char c = ' ';
+	char c=' ';
 
-	while (c != 'a') {
+
+	while (true) {
 		if (InitializeWindowsSockets() == false)
 		{
 			// we won't log anything since it will be logged
 			// by InitializeWindowsSockets() function
-			printf("Eroor with init socket\n");
+			printf("Error with init socket\n");
 		}
 
 		if (Connect() == false) {
@@ -25,21 +26,22 @@ int __cdecl main(int argc, char** argv) {
 		bool resultForType1 = true;
 		bool resultForType2 = true;
 		bool resultForNum = true;
+		bool starStatus = false;
+		bool starAnalog = false;
 		int parts_count = 0;
 		char signal[100]="";
 		char num[100]="";
 
 
-		printf("Enter a topic: ");
+		printf("Enter a topic:\n");
 		gets_s(topic, 100);
 		strcpy_s(topicToLower, TopicToLower(topic));
 		topicToLower[strcspn(topicToLower, "\n")] = 0;
+		
 
 		char** parts = separate_string(topicToLower, '.', &parts_count);
 		if (parts_count != 3) {
 			printf("You have to enter exactly 3 parts of topic\n");
-			HeaderForEnteringTopic();
-			fgets(topic, sizeof(topic), stdin);
 		}
 		for (int i = 0; i < parts_count; i++) {
 			if (strcmp(parts[0], "status") != 0 && strcmp(parts[0], "analog") != 0) {
@@ -58,10 +60,16 @@ int __cdecl main(int argc, char** argv) {
 				resultForType1 = false;
 				break;
 			}
+			else if (strcmp(signal, "status") == 0 && strcmp(parts[1], "*") == 0) {
+				starStatus = true;
+			}
 			else if (strcmp(signal, "analog") == 0 && strcmp(parts[1], "sec_a") != 0 && strcmp(parts[1], "sec_v") != 0 && strcmp(parts[1], "*") != 0) {
 
 				resultForType2 = false;
 				break;
+			}
+			else if (strcmp(signal, "analog") == 0 && strcmp(parts[1], "*") == 0) {
+				starAnalog = true;
 			}
 
 			strcpy_s(num, parts[2]);
@@ -96,12 +104,31 @@ int __cdecl main(int argc, char** argv) {
 			printf("For NUM you must enter a NUMBER\n");
 		}
 		else {
+			if (starStatus== true) {
+				printf("Enter a message for both FUSE and BREAKER: \n");
+				gets_s(message, 250);
 
-			printf("Enter a message: \n");
-			gets_s(message, 250);
-			Publish(topicToLower, message);
+				Publish(topicToLower, message);
+			}
+			else if (starAnalog == true) {
+				printf("Enter a message for both SEC_A and SEC_V: \n");
+				gets_s(message, 250);
+
+				Publish(topicToLower, message);
+			}
+			else {
+				printf("Enter a message: \n");
+				gets_s(message, 250);
+
+				Publish(topicToLower, message);
+			}
 		}
+		printf("For new topic press ENTER and if you want to quit press X.\n");
 		scanf_s("%c", &c);
+		printf("%c", c);
+		if (c == 'X' || c == 'x')
+			break;
+
 	}
 
 
