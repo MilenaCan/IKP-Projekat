@@ -90,7 +90,6 @@ bool DeleteFromMap(subscribers** map, char* topic) {
 		return false;
 	}
 	if (prev == NULL) {
-		//brisanje pocetnog covra
 		map[index] = temp->next;
 	}
 	else {

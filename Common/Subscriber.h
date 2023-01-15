@@ -128,7 +128,6 @@ char* TopicToLower(char* topic) {
 }
 
 DWORD WINAPI FunkcijaThread1(LPVOID param) {
-	////za slucaj da moze da se prijavi na vise tema, nema veze da li je iznad ili ispod recv funkcije tek nakon prijema poruke moze da se prijavi na novu temu
 	SOCKET connectSocket = *(SOCKET*)param;
 	while (WaitForSingleObject(endOfThread, 500) == WAIT_TIMEOUT) {
 
