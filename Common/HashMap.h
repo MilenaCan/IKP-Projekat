@@ -132,7 +132,7 @@ void printMap(subscribers** map) {
 					connectedSockets = connectedSockets->next;
 				}
 				printf("\tEND OF LIST FOR TOPIC : %s\n", temp->topic);
-				printf("\t_______________________________________________");
+				printf("\t\n_______________________________________________\n");
 				temp = temp->next;
 			}
 			printf("\n");

@@ -32,6 +32,7 @@ int __cdecl main(int argc, char** argv) {
 			bool resultForType1 = true;
 			bool resultForType2 = true;
 			bool resultForNum = true;
+			bool resultForParts = true;
 			char topic[100];
 			char topicToLower[100];
 			int parts_count = 0;
@@ -46,7 +47,8 @@ int __cdecl main(int argc, char** argv) {
 
 			char** parts = separate_string(topicToLower, '.', &parts_count);
 			if (parts_count != 3) {
-				printf("You have to enter exactly 3 parts of topic\n");
+				resultForParts = false;
+				
 			}
 			else {
 				for (int i = 0; i < parts_count; i++) {
@@ -103,6 +105,9 @@ int __cdecl main(int argc, char** argv) {
 			}
 			else if (resultForNum == false) {
 				printf("For NUM you must enter a NUMBER\n");
+			}
+			else if (resultForParts==false) {
+				printf("You have to enter exactly 3 parts of topic\n");
 			}
 			else {
 				Subscribe((void*)topicToLower);
